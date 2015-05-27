@@ -12,7 +12,6 @@ package com.zend.studio.p2.touchpoint.actions;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -60,7 +59,7 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 								"/org.eclipse.equinox.launcher.cocoa.macosx.x86_64_1.1.200.v20150204-1316");
 				Files.write(path, content.getBytes(charset));
 			}
-		} catch (IOException | URISyntaxException e) {
+		} catch (IOException e) {
 			return new Status(Status.ERROR, PLUGIN_ID, e.getMessage(), e);
 		}
 		return Status.OK_STATUS;
@@ -75,12 +74,12 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 		return Platform.OS_MACOSX.equals(Platform.getOS());
 	}
 
-	private File getInfoPlistFile() throws URISyntaxException {
+	private File getInfoPlistFile() {
 		File contents = getContentsFolder();
 		return (contents == null) ? null : new File(contents, "Info.plist");
 	}
 
-	private File getContentsFolder() throws URISyntaxException {
+	private File getContentsFolder() {
 		Location installLocation = Platform.getInstallLocation();
 		if (installLocation != null) {
 			File installLocationFolder = new File(installLocation.getURL()
