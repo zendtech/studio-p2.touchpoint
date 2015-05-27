@@ -84,7 +84,7 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 		Location installLocation = Platform.getInstallLocation();
 		if (installLocation != null) {
 			File installLocationFolder = new File(installLocation.getURL()
-					.toURI());
+					.getFile());
 			File contents = installLocationFolder;
 			while (contents != null && !"Contents".equals(contents.getName())) {
 				contents = contents.getParentFile();
