@@ -39,6 +39,37 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 		if (!isMac())
 			return Status.OK_STATUS;
 
+		updateSystemProperties();
+		updateInfoPlistFile();
+
+		return Status.OK_STATUS;
+	}
+
+	@Override
+	public IStatus undo(Map<String, Object> parameters) {
+		// Undo not supported
+		return Status.OK_STATUS;
+	}
+
+	private boolean isMac() {
+		return Platform.OS_MACOSX.equals(Platform.getOS());
+	}
+
+	private void updateSystemProperties() {
+		String eclipseCommands = System.getProperty("eclipse.commands");
+		if (eclipseCommands != null) {
+			eclipseCommands = eclipseCommands.replaceAll(
+					"\\/org\\.eclipse\\.equinox\\.launcher_.+?(?=\n)",
+					"/org.eclipse.equinox.launcher_1.3.0.v20140415-2008.jar");
+			eclipseCommands = eclipseCommands
+					.replaceAll(
+							"\\/org\\.eclipse\\.equinox\\.launcher\\.cocoa\\.macosx\\.x86_64_.+?(?=\n)",
+							"/org.eclipse.equinox.launcher.cocoa.macosx.x86_64_1.1.200.v20150204-1316");
+			System.setProperty("eclipse.commands", eclipseCommands);
+		}
+	}
+
+	private IStatus updateInfoPlistFile() {
 		try {
 			File infoPlistFile = getInfoPlistFile();
 			if (infoPlistFile == null) {
@@ -62,16 +93,8 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 		} catch (IOException e) {
 			return new Status(Status.ERROR, PLUGIN_ID, e.getMessage(), e);
 		}
-		return Status.OK_STATUS;
-	}
 
-	@Override
-	public IStatus undo(Map<String, Object> parameters) {
 		return Status.OK_STATUS;
-	}
-
-	private boolean isMac() {
-		return Platform.OS_MACOSX.equals(Platform.getOS());
 	}
 
 	private File getInfoPlistFile() {
