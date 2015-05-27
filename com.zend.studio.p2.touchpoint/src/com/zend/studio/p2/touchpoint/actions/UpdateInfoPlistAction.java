@@ -64,7 +64,7 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 			eclipseCommands = eclipseCommands
 					.replaceAll(
 							"\\/org\\.eclipse\\.equinox\\.launcher\\.cocoa\\.macosx\\.x86_64_.+?(?=\n)",
-							"/org.eclipse.equinox.launcher.cocoa.macosx.x86_64_1.1.200.v20150204-1316");
+							"/org.eclipse.equinox.launcher.cocoa.macosx.x86_64_1.1.200.v20150204-1316/eclipse_1607.so");
 			System.setProperty("eclipse.commands", eclipseCommands);
 		}
 	}
