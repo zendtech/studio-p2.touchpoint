@@ -18,6 +18,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Platform;
@@ -39,7 +41,12 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 		if (!isMac())
 			return Status.OK_STATUS;
 
-		updateInfoPlistFile();
+		try {
+			createSymbolicLinks();
+			updateInfoPlistFile();
+		} catch (IOException e) {
+			return new Status(Status.ERROR, PLUGIN_ID, e.getMessage(), e);
+		}
 
 		return Status.OK_STATUS;
 	}
@@ -54,29 +61,52 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 		return Platform.OS_MACOSX.equals(Platform.getOS());
 	}
 
-	private IStatus updateInfoPlistFile() {
-		try {
-			File infoPlistFile = getInfoPlistFile();
-			if (infoPlistFile == null) {
-				return new Status(Status.ERROR, PLUGIN_ID,
-						"Info.plist file not found.");
-			} else {
-				Path path = Paths.get(infoPlistFile.getAbsolutePath());
-				Charset charset = StandardCharsets.UTF_8;
+	private void createSymbolicLinks() throws IOException {
+		String launcherLibraryLocation = getLauncherLibraryLocation();
+		if (launcherLibraryLocation == null)
+			return;
 
-				String content = new String(Files.readAllBytes(path), charset);
-				content = content
-						.replaceAll(
-								"\\/org\\.eclipse\\.equinox\\.launcher_.+?(?=<)",
-								"/org.eclipse.equinox.launcher_1.3.0.v20140415-2008.jar");
-				content = content
-						.replaceAll(
-								"\\/org\\.eclipse\\.equinox\\.launcher\\.cocoa\\.macosx\\.x86_64_.+?(?=<)",
-								"/org.eclipse.equinox.launcher.cocoa.macosx.x86_64_1.1.200.v20150204-1316");
-				Files.write(path, content.getBytes(charset));
-			}
-		} catch (IOException e) {
-			return new Status(Status.ERROR, PLUGIN_ID, e.getMessage(), e);
+		File launcherLibraryFile = new File(launcherLibraryLocation);
+		File bundleFolder = launcherLibraryFile.getParentFile();
+		if (bundleFolder.exists())
+			return;
+
+		bundleFolder.mkdir();
+
+		Path oldLauncherLibrary = Paths.get(launcherLibraryLocation);
+		Path newLauncherLibrary = Paths
+				.get(bundleFolder.getParentFile().getAbsolutePath(),
+						"org.eclipse.equinox.launcher.cocoa.macosx.x86_64_1.1.200.v20150204-1316",
+						"eclipse_1607.so");
+		Files.createSymbolicLink(oldLauncherLibrary, newLauncherLibrary);
+	}
+
+	private String getLauncherLibraryLocation() throws IOException {
+		String commands = System.getProperty("eclipse.commands");
+		Pattern pattern = Pattern
+				.compile("(--launcher.library)\\n(.+eclipse_.+)");
+		Matcher matcher = pattern.matcher(commands);
+		return (matcher.find()) ? matcher.group(2) : null;
+	}
+
+	private IStatus updateInfoPlistFile() throws IOException {
+		File infoPlistFile = getInfoPlistFile();
+		if (infoPlistFile == null) {
+			return new Status(Status.ERROR, PLUGIN_ID,
+					"Info.plist file not found.");
+		} else {
+			Path path = Paths.get(infoPlistFile.getAbsolutePath());
+			Charset charset = StandardCharsets.UTF_8;
+
+			String content = new String(Files.readAllBytes(path), charset);
+			content = content.replaceAll(
+					"\\/org\\.eclipse\\.equinox\\.launcher_.+?(?=<)",
+					"/org.eclipse.equinox.launcher_1.3.0.v20140415-2008.jar");
+			content = content
+					.replaceAll(
+							"\\/org\\.eclipse\\.equinox\\.launcher\\.cocoa\\.macosx\\.x86_64_.+?(?=<)",
+							"/org.eclipse.equinox.launcher.cocoa.macosx.x86_64_1.1.200.v20150204-1316");
+			Files.write(path, content.getBytes(charset));
 		}
 
 		return Status.OK_STATUS;
@@ -100,6 +130,17 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 		}
 
 		return null;
+	}
+
+	public static void main(String[] args) {
+		String str = "-os\nmacosx\n-ws\ncocoa\n-arch\nx86_64\n-showsplash\n-launcher\n/Applications/ZendStudio.app/Contents/MacOS/ZendStudio\n-name\nZend Studio\n--launcher.library\n/Applications/ZendStudio.app/Contents/Resources/Java/plugins/org.eclipse.equinox.launcher.cocoa.macosx.x86_64_1.1.200.v20150204-1316/eclipse_1607.so\n-startup\n/Applications/ZendStudio.app/Contents/Resources/Java/plugins/org.eclipse.equinox.launcher_1.3.0.v20140415-2008.jar\n--launcher.overrideVmargs\n-showlocation\n-keyring\n/Users/qa/.eclipse_keyring\n-showlocation";
+		Pattern pattern = Pattern
+				.compile("(--launcher.library)\\n(.+eclipse_.+)");
+		Matcher matcher = pattern.matcher(str);
+		if (matcher.find()) {
+			System.out.println(matcher.group(1));
+			System.out.println(matcher.group(2));
+		}
 	}
 
 }
