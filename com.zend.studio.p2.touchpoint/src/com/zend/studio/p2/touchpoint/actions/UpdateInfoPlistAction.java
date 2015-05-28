@@ -39,7 +39,6 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 		if (!isMac())
 			return Status.OK_STATUS;
 
-		updateSystemProperties();
 		updateInfoPlistFile();
 
 		return Status.OK_STATUS;
@@ -53,20 +52,6 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 
 	private boolean isMac() {
 		return Platform.OS_MACOSX.equals(Platform.getOS());
-	}
-
-	private void updateSystemProperties() {
-		String eclipseCommands = System.getProperty("eclipse.commands");
-		if (eclipseCommands != null) {
-			eclipseCommands = eclipseCommands.replaceAll(
-					"\\/org\\.eclipse\\.equinox\\.launcher_.+?(?=\n)",
-					"/org.eclipse.equinox.launcher_1.3.0.v20140415-2008.jar");
-			eclipseCommands = eclipseCommands
-					.replaceAll(
-							"\\/org\\.eclipse\\.equinox\\.launcher\\.cocoa\\.macosx\\.x86_64_.+?(?=\n)",
-							"/org.eclipse.equinox.launcher.cocoa.macosx.x86_64_1.1.200.v20150204-1316/eclipse_1607.so");
-			System.setProperty("eclipse.commands", eclipseCommands);
-		}
 	}
 
 	private IStatus updateInfoPlistFile() {
