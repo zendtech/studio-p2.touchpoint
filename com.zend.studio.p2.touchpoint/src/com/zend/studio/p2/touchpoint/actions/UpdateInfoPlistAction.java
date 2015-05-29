@@ -15,9 +15,12 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -42,7 +45,7 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 			return Status.OK_STATUS;
 
 		try {
-			createSymbolicLinks();
+			protectLaunchersFromDeletion();
 			updateInfoPlistFile();
 		} catch (IOException e) {
 			return new Status(Status.ERROR, PLUGIN_ID, e.getMessage(), e);
@@ -61,32 +64,61 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 		return Platform.OS_MACOSX.equals(Platform.getOS());
 	}
 
-	private void createSymbolicLinks() throws IOException {
+	private void protectLaunchersFromDeletion() throws IOException {
+		String startupJarLocation = getStartupJarLocation();
+		if (startupJarLocation != null) {
+			File startupJar = new File(startupJarLocation);
+			if (startupJar.exists()) {
+				removeWritePermissions(startupJar);
+			}
+		}
+
 		String launcherLibraryLocation = getLauncherLibraryLocation();
-		if (launcherLibraryLocation == null)
-			return;
+		if (launcherLibraryLocation != null) {
+			File launcherLibrary = new File(launcherLibraryLocation);
+			File bundleFolder = launcherLibrary.getParentFile();
+			if (bundleFolder.exists()) {
+				removeWritePermissionsRecursively(bundleFolder);
+			}
+		}
+	}
 
-		File launcherLibraryFile = new File(launcherLibraryLocation);
-		File bundleFolder = launcherLibraryFile.getParentFile();
-		if (bundleFolder.exists())
-			return;
-
-		bundleFolder.mkdir();
-
-		Path oldLauncherLibrary = Paths.get(launcherLibraryLocation);
-		Path newLauncherLibrary = Paths
-				.get(bundleFolder.getParentFile().getAbsolutePath(),
-						"org.eclipse.equinox.launcher.cocoa.macosx.x86_64_1.1.200.v20150204-1316",
-						"eclipse_1607.so");
-		Files.createSymbolicLink(oldLauncherLibrary, newLauncherLibrary);
+	private String getStartupJarLocation() throws IOException {
+		return getCommandParameterValue("-startup");
 	}
 
 	private String getLauncherLibraryLocation() throws IOException {
+		return getCommandParameterValue("--launcher.library");
+	}
+
+	private String getCommandParameterValue(String param) {
+		String regex = String.format("(%s)\\n(.+)", param);
+		Pattern pattern = Pattern.compile(regex);
+
 		String commands = System.getProperty("eclipse.commands");
-		Pattern pattern = Pattern
-				.compile("(--launcher.library)\\n(.+eclipse_.+)");
 		Matcher matcher = pattern.matcher(commands);
+
 		return (matcher.find()) ? matcher.group(2) : null;
+	}
+
+	private void removeWritePermissionsRecursively(File file)
+			throws IOException {
+		removeWritePermissions(file);
+		if (file.isDirectory()) {
+			for (File child : file.listFiles()) {
+				removeWritePermissionsRecursively(child);
+			}
+		}
+	}
+
+	private void removeWritePermissions(File file) throws IOException {
+		Path path = Paths.get(file.getAbsolutePath());
+		Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(
+				path, LinkOption.NOFOLLOW_LINKS);
+		permissions.remove(PosixFilePermission.OWNER_WRITE);
+		permissions.remove(PosixFilePermission.GROUP_WRITE);
+		permissions.remove(PosixFilePermission.OTHERS_WRITE);
+		Files.setPosixFilePermissions(path, permissions);
 	}
 
 	private IStatus updateInfoPlistFile() throws IOException {
@@ -130,17 +162,6 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 		}
 
 		return null;
-	}
-
-	public static void main(String[] args) {
-		String str = "-os\nmacosx\n-ws\ncocoa\n-arch\nx86_64\n-showsplash\n-launcher\n/Applications/ZendStudio.app/Contents/MacOS/ZendStudio\n-name\nZend Studio\n--launcher.library\n/Applications/ZendStudio.app/Contents/Resources/Java/plugins/org.eclipse.equinox.launcher.cocoa.macosx.x86_64_1.1.200.v20150204-1316/eclipse_1607.so\n-startup\n/Applications/ZendStudio.app/Contents/Resources/Java/plugins/org.eclipse.equinox.launcher_1.3.0.v20140415-2008.jar\n--launcher.overrideVmargs\n-showlocation\n-keyring\n/Users/qa/.eclipse_keyring\n-showlocation";
-		Pattern pattern = Pattern
-				.compile("(--launcher.library)\\n(.+eclipse_.+)");
-		Matcher matcher = pattern.matcher(str);
-		if (matcher.find()) {
-			System.out.println(matcher.group(1));
-			System.out.println(matcher.group(2));
-		}
 	}
 
 }
