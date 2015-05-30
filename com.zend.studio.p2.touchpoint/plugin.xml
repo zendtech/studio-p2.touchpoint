@@ -5,7 +5,8 @@
          point="org.eclipse.equinox.p2.engine.actions">
       <action
             class="com.zend.studio.p2.touchpoint.actions.UpdateInfoPlistAction"
-            name="UpdateInfoPlist"
+            description="Updates the Info.plist file of the Mac application with the correct paths of the newly installed Equinox launcher bundles."
+            name="updateInfoPlist"
             touchpointType="org.eclipse.equinox.p2.osgi"
             version="1.0.0">
       </action>
