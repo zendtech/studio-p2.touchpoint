@@ -27,8 +27,14 @@ import java.util.regex.Pattern;
 import org.eclipse.core.runtime.IStatus;
 import org.eclipse.core.runtime.Platform;
 import org.eclipse.core.runtime.Status;
+import org.eclipse.equinox.p2.engine.IProfile;
 import org.eclipse.equinox.p2.engine.spi.ProvisioningAction;
+import org.eclipse.equinox.p2.metadata.IInstallableUnit;
+import org.eclipse.equinox.p2.query.IQuery;
+import org.eclipse.equinox.p2.query.IQueryResult;
+import org.eclipse.equinox.p2.query.QueryUtil;
 import org.eclipse.osgi.service.datalocation.Location;
+import org.osgi.framework.Version;
 
 /**
  * Updates the Info.plist file of the Mac application with the correct paths of
@@ -46,7 +52,7 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 
 		try {
 			protectLaunchersFromDeletion();
-			updateInfoPlistFile();
+			updateInfoPlistFile(parameters);
 		} catch (IOException e) {
 			return new Status(Status.ERROR, PLUGIN_ID, e.getMessage(), e);
 		}
@@ -121,7 +127,8 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 		Files.setPosixFilePermissions(path, permissions);
 	}
 
-	private IStatus updateInfoPlistFile() throws IOException {
+	private IStatus updateInfoPlistFile(Map<String, Object> parameters)
+			throws IOException {
 		File infoPlistFile = getInfoPlistFile();
 		if (infoPlistFile == null) {
 			return new Status(Status.ERROR, PLUGIN_ID,
@@ -131,13 +138,41 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 			Charset charset = StandardCharsets.UTF_8;
 
 			String content = new String(Files.readAllBytes(path), charset);
-			content = content.replaceAll(
-					"\\/org\\.eclipse\\.equinox\\.launcher_.+?(?=<)",
-					"/org.eclipse.equinox.launcher_1.3.0.v20140415-2008.jar");
-			content = content
-					.replaceAll(
-							"\\/org\\.eclipse\\.equinox\\.launcher\\.cocoa\\.macosx\\.x86_64_.+?(?=<)",
-							"/org.eclipse.equinox.launcher.cocoa.macosx.x86_64_1.1.200.v20150204-1316");
+
+			String productNewVersion = getProductNewVersion(parameters);
+			if (productNewVersion != null) {
+				content = content
+						.replaceAll(
+								"(?<=<key>CFBundleGetInfoString<\\/key>\\W{1,100}<string>\\D{1,100})(\\d{1,2}\\.\\d{1,2}\\.\\d{1,2})(?=\\D{1,100}<\\/string>)",
+								productNewVersion);
+				content = content
+						.replaceAll(
+								"(?<=<key>CFBundleShortVersionString<\\/key>\\W{1,100}<string>)(.*)(?=<\\/string>)",
+								productNewVersion);
+				content = content
+						.replaceAll(
+								"(?<=<key>CFBundleVersion<\\/key>\\W{1,100}<string>)(.*)(?=<\\/string>)",
+								productNewVersion);
+			}
+
+			String startupJarVersion = getBundleVersion(parameters,
+					"org.eclipse.equinox.launcher");
+			if (startupJarVersion != null) {
+				content = content
+						.replaceAll(
+								"(?<=<string>-startup<\\/string>\\W{1,100}.{1,100}\\/org\\.eclipse\\.equinox\\.launcher_)(.+?)(?=\\.jar<\\/string>)",
+								startupJarVersion);
+			}
+
+			String launcherLibraryVersion = getBundleVersion(parameters,
+					"org.eclipse.equinox.launcher.cocoa.macosx.x86_64");
+			if (launcherLibraryVersion != null) {
+				content = content
+						.replaceAll(
+								"(?<=<string>--launcher.library<\\/string>\\W{1,100}.{1,100}\\/org\\.eclipse\\.equinox\\.launcher\\.cocoa\\.macosx\\.x86_64_)(.+?)(?=<\\/string>)",
+								launcherLibraryVersion);
+			}
+
 			Files.write(path, content.getBytes(charset));
 		}
 
@@ -159,6 +194,32 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 				contents = contents.getParentFile();
 			}
 			return contents;
+		}
+
+		return null;
+	}
+
+	private String getBundleVersion(Map<String, Object> parameters,
+			String symbolicName) {
+		IProfile profile = (IProfile) parameters.get("profile");
+		IQuery<IInstallableUnit> query = QueryUtil.createMatchQuery(
+				"this.id == $0", symbolicName);
+		IQueryResult<IInstallableUnit> result = profile.available(query, null);
+
+		if (!result.isEmpty()) {
+			return result.iterator().next().getVersion().toString();
+		}
+
+		return null;
+	}
+
+	private String getProductNewVersion(Map<String, Object> parameters) {
+		IInstallableUnit iu = (IInstallableUnit) parameters.get("iu");
+
+		if (iu != null) {
+			Version version = new Version(iu.getVersion().toString());
+			return String.format("%s.%s.%s", version.getMajor(),
+					version.getMinor(), version.getMicro());
 		}
 
 		return null;
