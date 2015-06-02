@@ -8,7 +8,7 @@
  * Contributors:
  *    Kaloyan Raev - initial API and implementation
  *******************************************************************************/
-package com.zend.studio.p2.touchpoint.actions;
+package com.zend.studio.internal.p2.touchpoint.actions;
 
 import java.io.File;
 import java.io.IOException;
