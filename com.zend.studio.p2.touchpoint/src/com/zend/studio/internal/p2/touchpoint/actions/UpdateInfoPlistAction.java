@@ -97,8 +97,8 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 			} else {
 				// already deleted - create symbolic link to the new library
 				bundleFolder.mkdir();
-				Path newLauncherLibraryPath = Paths.get(
-						bundleFolder.getAbsolutePath(),
+				Path newLauncherLibraryPath = Paths.get(bundleFolder
+						.getParentFile().getAbsolutePath(),
 						getNewLauncherLibraryName(parameters));
 				Files.createSymbolicLink(Paths.get(launcherLibraryLocation),
 						newLauncherLibraryPath);
@@ -155,15 +155,20 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 		String launcherLibraryVersion = getBundleVersion(parameters,
 				"org.eclipse.equinox.launcher.cocoa.macosx.x86_64");
 
+		String nativeLibraryName = null;
 		if (launcherLibraryVersion.startsWith("1.1.200.")) {
-			return "eclipse_1607.so";
+			nativeLibraryName = "eclipse_1607.so";
 		} else if (launcherLibraryVersion.startsWith("1.1.300.")) {
-			return "eclipse_1612.so";
+			nativeLibraryName = "eclipse_1612.so";
+		} else {
+			throw new IllegalStateException(
+					"Cannot determine launcher library name for bundle with version "
+							+ launcherLibraryVersion);
 		}
 
-		throw new IllegalStateException(
-				"Cannot determine launcher library name for bundle with version "
-						+ launcherLibraryVersion);
+		return String.format(
+				"org.eclipse.equinox.launcher.cocoa.macosx.x86_64_%s/%s",
+				launcherLibraryVersion, nativeLibraryName);
 	}
 
 	private IStatus updateInfoPlistFile(Map<String, Object> parameters)
