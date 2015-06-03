@@ -51,9 +51,9 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 			return Status.OK_STATUS;
 
 		try {
-			protectLaunchersFromDeletion();
+			preserveOldLaunchersLibraries(parameters);
 			updateInfoPlistFile(parameters);
-		} catch (IOException e) {
+		} catch (Exception e) {
 			return new Status(Status.ERROR, PLUGIN_ID, e.getMessage(), e);
 		}
 
@@ -70,12 +70,20 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 		return Platform.OS_MACOSX.equals(Platform.getOS());
 	}
 
-	private void protectLaunchersFromDeletion() throws IOException {
+	private void preserveOldLaunchersLibraries(Map<String, Object> parameters)
+			throws IOException {
 		String startupJarLocation = getStartupJarLocation();
 		if (startupJarLocation != null) {
 			File startupJar = new File(startupJarLocation);
 			if (startupJar.exists()) {
+				// protect from deletion
 				removeWritePermissions(startupJar);
+			} else {
+				// already deleted - create symbolic link to the new library
+				Path newStartupJarPath = Paths.get(startupJar.getParentFile()
+						.getAbsolutePath(), getNewStartupJarName(parameters));
+				Files.createSymbolicLink(Paths.get(startupJarLocation),
+						newStartupJarPath);
 			}
 		}
 
@@ -84,7 +92,16 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 			File launcherLibrary = new File(launcherLibraryLocation);
 			File bundleFolder = launcherLibrary.getParentFile();
 			if (bundleFolder.exists()) {
+				// protect from deletion
 				removeWritePermissionsRecursively(bundleFolder);
+			} else {
+				// already deleted - create symbolic link to the new library
+				bundleFolder.mkdir();
+				Path newLauncherLibraryPath = Paths.get(
+						bundleFolder.getAbsolutePath(),
+						getNewLauncherLibraryName(parameters));
+				Files.createSymbolicLink(Paths.get(launcherLibraryLocation),
+						newLauncherLibraryPath);
 			}
 		}
 	}
@@ -125,6 +142,28 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 		permissions.remove(PosixFilePermission.GROUP_WRITE);
 		permissions.remove(PosixFilePermission.OTHERS_WRITE);
 		Files.setPosixFilePermissions(path, permissions);
+	}
+
+	private String getNewStartupJarName(Map<String, Object> parameters) {
+		String startupJarVersion = getBundleVersion(parameters,
+				"org.eclipse.equinox.launcher");
+		return String.format("org.eclipse.equinox.launcher_%s.jar",
+				startupJarVersion);
+	}
+
+	private String getNewLauncherLibraryName(Map<String, Object> parameters) {
+		String launcherLibraryVersion = getBundleVersion(parameters,
+				"org.eclipse.equinox.launcher.cocoa.macosx.x86_64");
+
+		if (launcherLibraryVersion.startsWith("1.1.200.")) {
+			return "eclipse_1607.so";
+		} else if (launcherLibraryVersion.startsWith("1.1.300.")) {
+			return "eclipse_1612.so";
+		}
+
+		throw new IllegalStateException(
+				"Cannot determine launcher library name for bundle with version "
+						+ launcherLibraryVersion);
 	}
 
 	private IStatus updateInfoPlistFile(Map<String, Object> parameters)
