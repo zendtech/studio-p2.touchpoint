@@ -102,6 +102,8 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 						getNewLauncherLibraryName(parameters));
 				Files.createSymbolicLink(Paths.get(launcherLibraryLocation),
 						newLauncherLibraryPath);
+				// protect from future deletion
+				removeWritePermissionsRecursively(bundleFolder);
 			}
 		}
 	}
