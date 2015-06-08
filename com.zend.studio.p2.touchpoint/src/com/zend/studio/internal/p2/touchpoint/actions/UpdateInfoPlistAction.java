@@ -161,7 +161,7 @@ public class UpdateInfoPlistAction extends ProvisioningAction {
 		if (launcherLibraryVersion.startsWith("1.1.200.")) {
 			nativeLibraryName = "eclipse_1607.so";
 		} else if (launcherLibraryVersion.startsWith("1.1.300.")) {
-			nativeLibraryName = "eclipse_1612.so";
+			nativeLibraryName = "eclipse_1611.so";
 		} else {
 			throw new IllegalStateException(
 					"Cannot determine launcher library name for bundle with version "
